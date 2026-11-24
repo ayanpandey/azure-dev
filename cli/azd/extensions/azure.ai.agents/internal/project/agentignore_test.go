@@ -30,6 +30,11 @@ func TestAgentIgnore_NoFile_UsesDefaults(t *testing.T) {
 	require.True(t, m.ShouldExclude(".git", true))
 	require.True(t, m.ShouldExclude(".mypy_cache", true))
 	require.True(t, m.ShouldExclude(".pytest_cache", true))
+	require.False(t, m.ShouldExclude("onnx/bin", true))
+	require.False(t, m.ShouldExclude("vllm/obj", true))
+	require.False(t, m.ShouldExclude("nodejs_wheel/lib/node_modules", true))
+	require.False(t, m.ShouldExclude("pkg/Dockerfile", false))
+	require.False(t, m.ShouldExclude("pkg/.vs", true))
 	require.True(t, m.ShouldExclude("foo.pyc", false))
 	require.True(t, m.ShouldExclude("bar.pyo", false))
 	require.True(t, m.ShouldExclude("x.user", false))
@@ -258,6 +263,43 @@ func TestZipSourceDirExcludesSecretsWithUserIgnore(t *testing.T) {
 	require.Empty(t, sensitive)
 }
 
+func TestZipSourceDirKeepsNestedBuildDirsInInstalledPackages(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFiles(t, dir, map[string]string{
+		"main.py":                            "print('ready')\n",
+		"onnx/bin/checker.py":                "x",
+		"nodejs_wheel/bin/node":              "x",
+		"nodejs_wheel/lib/node_modules/a.js": "x",
+		"vllm/obj/m.py":                      "x",
+		"pkg/Dockerfile":                     "x",
+		"bin/app":                            "x",
+		"obj/x":                              "x",
+		"node_modules/y/index.js":            "x",
+		"Dockerfile":                         "x",
+		".dockerignore":                      "x",
+	})
+
+	zipPath, _, err := zipSourceDir(t.Context(), dir)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Remove(zipPath) })
+
+	archive, err := zip.OpenReader(zipPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = archive.Close() })
+	names := make([]string, len(archive.File))
+	for i, file := range archive.File {
+		names[i] = file.Name
+	}
+	require.ElementsMatch(t, []string{
+		"main.py",
+		"onnx/bin/checker.py",
+		"nodejs_wheel/bin/node",
+		"nodejs_wheel/lib/node_modules/a.js",
+		"vllm/obj/m.py",
+		"pkg/Dockerfile",
+	}, names)
+}
+
 func TestCodePackageSensitivePathsReportsNegatedSecrets(t *testing.T) {
 	dir := t.TempDir()
 	writeTestFiles(t, dir, map[string]string{
@@ -308,6 +350,9 @@ func TestDefaultAgentIgnoreContent(t *testing.T) {
 	require.Contains(t, content, ".git/")
 	require.Contains(t, content, "Dockerfile")
 	require.Contains(t, content, ".dockerignore")
+	require.Contains(t, content, "\n/bin/\n")
+	require.Contains(t, content, "\n/node_modules/\n")
+	require.Contains(t, content, "\n/Dockerfile\n")
 	require.Contains(t, content, "appPackage.zip")
 	require.Contains(t, content, ".appPackage.zip.azd-generated")
 	require.Contains(t, content, "TEAMS_APP_SETUP.md")

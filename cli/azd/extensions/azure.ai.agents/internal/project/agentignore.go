@@ -254,17 +254,18 @@ venv/
 .pytest_cache/
 
 # .NET
-bin/
-obj/
+# Anchored to the service root so they don't match folders inside installed Python packages.
+/bin/
+/obj/
 *.user
 *.suo
-.vs/
+/.vs/
 
 # Node
-node_modules/
+/node_modules/
 
 # Docker (not used in code deploy)
-Dockerfile
-.dockerignore
+/Dockerfile
+/.dockerignore
 `
 }
