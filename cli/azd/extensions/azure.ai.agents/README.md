@@ -587,9 +587,13 @@ with `dependencyResolution: bundled` upload `dotnet publish` output instead, so
 
 Without a `.agentignore`, azd leaves out a built-in default set: azd tooling
 files, secrets and local state, language caches and dependency folders (such as
-`__pycache__/`, `.venv/`, `bin/`, `obj/`, and `node_modules/`), and Docker
-files. `azd ai agent init` writes the same defaults to a new `.agentignore` so
-you can edit them.
+`__pycache__/` and `.venv/`), and Docker files. The `bin/`, `obj/`,
+`node_modules/` and Dockerfile defaults apply only at the service root, so
+installed Python packages that ship folders with those names are still
+packaged. `azd ai agent init` writes the same defaults to a new `.agentignore`
+so you can edit them. A `.agentignore` written by an earlier azd version keeps
+the unanchored lines; edit them to `/bin/`, `/obj/`, `/node_modules/` and so on
+to get this behavior.
 
 When a `.agentignore` exists, its patterns replace the built-in defaults, except
 for two sets that azd always applies before your patterns:
